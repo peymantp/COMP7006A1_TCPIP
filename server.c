@@ -70,7 +70,7 @@ int main ()
 	{
 		sin_size = sizeof(struct sockaddr_in);
 
-		/* Wait a connection, and obtain a new socket file despriptor for single connection */
+		/* Wait for a connection, and obtain a new socket file despriptor for single connection */
 		if ((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) == -1)
 		{
 		    fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
@@ -80,7 +80,7 @@ int main ()
 			printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));
 
 		/*Receive File from Client */
-		char* fr_name = "/home/aryan/Desktop/receive.txt";
+		char* fr_name = "receive.txt";
 		FILE *fr = fopen(fr_name, "a");
 		if(fr == NULL)
 			printf("File %s Cannot be opened file on server.\n", fr_name);
@@ -117,13 +117,8 @@ int main ()
 			fclose(fr);
 		}
 
-		/* Call the Script */
-		system("cd ; chmod +x script.sh ; ./script.sh");
-
 		/* Send File to Client */
-		//if(!fork())
-		//{
-		    char* fs_name = "/home/aryan/Desktop/output.txt";
+		    char* fs_name = "output.txt";
 		    char sdbuf[LENGTH]; // Send buffer
 		    printf("[Server] Sending %s to the Client...", fs_name);
 		    FILE *fs = fopen(fs_name, "r");
@@ -149,6 +144,5 @@ int main ()
 		    close(nsockfd);
 		    printf("[Server] Connection with Client closed. Server will wait now...\n");
 		    while(waitpid(-1, NULL, WNOHANG) > 0);
-		//}
 	}
 }
