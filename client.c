@@ -1,113 +1,121 @@
-/*---------------------------------------------------------------------------------------
---	SOURCE FILE:		tcp_clnt.c - A simple TCP client program.
---
---	PROGRAM:		tclnt.exe
---
---	FUNCTIONS:		Berkeley Socket API
---
---	DATE:			January 23, 2001
---
---	REVISIONS:		(Date and Description)
---				January 2005
---				Modified the read loop to use fgets.
---				While loop is based on the buffer length 
---
---
---	DESIGNERS:		Aman Abdulla
---
---	PROGRAMMERS:		Aman Abdulla
---
---	NOTES:
---	The program will establish a TCP connection to a user specifed server.
--- 	The server can be specified using a fully qualified domain name or and
---	IP address. After the connection has been established the user will be
--- 	prompted for date. The date string is then sent to the server and the
--- 	response (echo) back from the server is displayed.
----------------------------------------------------------------------------------------*/
-#include <stdio.h>
-#include <netdb.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <errno.h>
 #include <stdlib.h>
-#include <strings.h>
-#include <unistd.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <signal.h>
+#include <ctype.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 
-#define SERVER_TCP_PORT		7000	// Default port
-#define BUFLEN			80  	// Buffer length
+#define PORT 20000
+#define LENGTH 512
 
-int main (int argc, char **argv)
+
+void error(const char *msg)
 {
-	int n, bytes_to_read;
-	int sd, port;
-	struct hostent	*hp;
-	struct sockaddr_in server;
-	char  *host, *bp, rbuf[BUFLEN], sbuf[BUFLEN], **pptr, *sptr;
-	char str[16];
+	perror(msg);
+	exit(1);
+}
 
-	switch(argc)
+int main(int argc, char *argv[])
+{
+	/* Variable Definition */
+	int sockfd;
+	int nsockfd;
+	char revbuf[LENGTH];
+	struct sockaddr_in remote_addr;
+
+	/* Get the Socket file descriptor */
+	if ((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
 	{
-		case 2:
-			host =	argv[1];	// Host name
-			port =	SERVER_TCP_PORT;
-		break;
-		case 3:
-			host =	argv[1];
-			port =	atoi(argv[2]);	// User specified port
-		break;
-		default:
-			fprintf(stderr, "Usage: %s host [port]\n", argv[0]);
+		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor! (errno = %d)\n",errno);
+		exit(1);
+	}
+
+	/* Fill the socket address struct */
+	remote_addr.sin_family = AF_INET;
+	remote_addr.sin_port = htons(PORT);
+	inet_pton(AF_INET, "127.0.0.1", &remote_addr.sin_addr);
+	bzero(&(remote_addr.sin_zero), 8);
+
+	/* Try to connect the remote */
+	if (connect(sockfd, (struct sockaddr *)&remote_addr, sizeof(struct sockaddr)) == -1)
+	{
+		fprintf(stderr, "ERROR: Failed to connect to the host! (errno = %d)\n",errno);
+		exit(1);
+	}
+	else
+		printf("[Client] Connected to server at port %d...ok!\n", PORT);
+
+	/* Send File to Server */
+	//if(!fork())
+	//{
+		char* fs_name = "/home/aryan/Desktop/quotidiani.txt";
+		char sdbuf[LENGTH];
+		printf("[Client] Sending %s to the Server... ", fs_name);
+		FILE *fs = fopen(fs_name, "r");
+		if(fs == NULL)
+		{
+			printf("ERROR: File %s not found.\n", fs_name);
 			exit(1);
-	}
+		}
 
-	// Create the socket
-	if ((sd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
+		bzero(sdbuf, LENGTH);
+		int fs_block_sz;
+		while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs)) > 0)
+		{
+		    if(send(sockfd, sdbuf, fs_block_sz, 0) < 0)
+		    {
+		        fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
+		        break;
+		    }
+		    bzero(sdbuf, LENGTH);
+		}
+		printf("Ok File %s from Client was Sent!\n", fs_name);
+	//}
+
+	/* Receive File from Server */
+	printf("[Client] Receiveing file from Server and saving it as final.txt...");
+	char* fr_name = "/home/aryan/Desktop/progetto/final.txt";
+	FILE *fr = fopen(fr_name, "a");
+	if(fr == NULL)
+		printf("File %s Cannot be opened.\n", fr_name);
+	else
 	{
-		perror("Cannot create socket");
-		exit(1);
+		bzero(revbuf, LENGTH);
+		int fr_block_sz = 0;
+	    while((fr_block_sz = recv(sockfd, revbuf, LENGTH, 0)) > 0)
+	    {
+			int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
+	        if(write_sz < fr_block_sz)
+			{
+	            error("File write failed.\n");
+	        }
+			bzero(revbuf, LENGTH);
+			if (fr_block_sz == 0 || fr_block_sz != 512)
+			{
+				break;
+			}
+		}
+		if(fr_block_sz < 0)
+        {
+			if (errno == EAGAIN)
+			{
+				printf("recv() timed out.\n");
+			}
+			else
+			{
+				fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+			}
+		}
+	    printf("Ok received from server!\n");
+	    fclose(fr);
 	}
-	bzero((char *)&server, sizeof(struct sockaddr_in));
-	server.sin_family = AF_INET;
-	server.sin_port = htons(port);
-	if ((hp = gethostbyname(host)) == NULL)
-	{
-		fprintf(stderr, "Unknown server address\n");
-		exit(1);
-	}
-	bcopy(hp->h_addr, (char *)&server.sin_addr, hp->h_length);
-
-	// Connecting to the server
-	if (connect (sd, (struct sockaddr *)&server, sizeof(server)) == -1)
-	{
-		fprintf(stderr, "Can't connect to server\n");
-		perror("connect");
-		exit(1);
-	}
-	printf("Connected:    Server Name: %s\n", hp->h_name);
-	pptr = hp->h_addr_list;
-	printf("\t\tIP Address: %s\n", inet_ntop(hp->h_addrtype, *pptr, str, sizeof(str)));
-	printf("Transmit:\n");
-	//gets(sbuf); // get user's text
-	fgets (sbuf, BUFLEN, stdin);
-
-	// Transmit data through the socket
-	send (sd, sbuf, BUFLEN, 0);
-
-	printf("Receive:\n");
-	bp = rbuf;
-	bytes_to_read = BUFLEN;
-
-	// client makes repeated calls to recv until no more data is expected to arrive.
-	n = 0;
-	while ((n = recv (sd, bp, bytes_to_read, 0)) < BUFLEN)
-	{
-		bp += n;
-		bytes_to_read -= n;
-	}
-	printf ("%s\n", rbuf);
-	fflush(stdout);
-	close (sd);
+	close (sockfd);
+	printf("[Client] Connection lost.\n");
 	return (0);
 }

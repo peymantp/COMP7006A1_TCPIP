@@ -1,145 +1,154 @@
-//This is the server side
-/*
-Objective: Starts the server, allows in max of 5 connections. Client makes the request to connect to server. Once validated, client makes a request
-to retrieve a file. Server acknowledges that request and then submits the file to client.
-
-Server Purpose:
-	=> Create a socket with the socket()
-	=> Bind the socket to an address using the bind()
-	=> Listen for connections with the Listener()
-	=> Accept a connection with the accept()
-	=> Send and receive data, using the read() and write() system calls
-*/
-
-#include <stdio.h>
-#include <sys/types.h>	
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <stdlib.h>
-#include <strings.h>
+#include <stdio.h>
+#include <errno.h>
+#include <string.h>
+#include <sys/types.h>
+#include <netinet/in.h>
+#include <sys/wait.h>
+#include <sys/socket.h>
+#include <signal.h>
+#include <ctype.h>
 #include <arpa/inet.h>
-#include <unistd.h>
+#include <netdb.h>
 
-#define SERVER_TCP_PORT 7005 //default port
-#define BUFLEN 80 //defining the buffer length to be a max of 80bits per reading
-#define TRUE 1
+#define PORT 20000
+#define BACKLOG 5
+#define LENGTH 512
 
+void error(const char *msg)
+{
+	perror(msg);
+	exit(1);
+}
 
-//AF_NET defines what it'll be listenting to which are IPv4 addresses and only follows this kind of protocols
-//sock_stream defines which transport protocol we'll be following which in this case will be TCP
-//while (true) is an infinite loop that keeps the server running with minimal delays
+int main ()
+{
+	/* Defining Variables */
+	int sockfd;
+	int nsockfd;
+	int num;
+	int sin_size;
+	struct sockaddr_in addr_local; /* client addr */
+	struct sockaddr_in addr_remote; /* server addr */
+	char revbuf[LENGTH]; // Receiver buffer
 
-int main(int argc, char **argv){
-
-	int	n, bytes_to_read;
-	int	sd, new_sd, client_len, port;
-	struct	sockaddr_in server, client;
-	char	*bp, *filePath, buf[BUFLEN];
-
-	switch(argc)
+	/* Get the Socket file descriptor */
+	if((sockfd = socket(AF_INET, SOCK_STREAM, 0)) == -1 )
 	{
-		case 1:
-			port = SERVER_TCP_PORT;	// Use the default port
-		break;
-		case 2:
-			port = atoi(argv[1]);	// Get user specified port
-		break;
-		default:
-			fprintf(stderr, "Usage: %s [port]\n", argv[0]);
-			exit(1);
-	}
-
-	//this creates a socket stream and then from there we bind it
-	//socket() takes in 3 arguments: a) defines the internet protocol of IPv4, b)specifies the transport layer we want to follow TCP,
-	//c) is generally left at 0 for the kernal to use the defaulted connection which is alway TCP since it's most reliable
-	if ((sd = socket(AF_NET, SOCK_STREAM, 0)) == 1)
-	{
-		perror("Can't create socket"); //will terminate if socket can't get a proper connection
+		fprintf(stderr, "ERROR: Failed to obtain Socket Descriptor. (errno = %d)\n", errno);
 		exit(1);
 	}
+	else
+		printf("[Server] Obtaining socket descriptor successfully.\n");
 
-	//Now we have to bind the address with the port
-	bzero((char *)&server, sizeof(struct sockaddr_in)); //this sets all values in the buffer to zero  sockaddr_in is a socket structure we must follow
-	server.sin_family = AF_NET;
-	server.sin_port = htons(port);
-	server.sin_addr.s_addr = htonl(INADDR_ANY); // Accept connections from any client
+	/* Fill the client socket address struct */
+	addr_local.sin_family = AF_INET; // Protocol Family
+	addr_local.sin_port = htons(PORT); // Port number
+	addr_local.sin_addr.s_addr = INADDR_ANY; // AutoFill local address
+	bzero(&(addr_local.sin_zero), 8); // Flush the rest of struct
 
-	if (bind(sd, (struct sockaddr *)&server, sizeof(server)) == -1)
+	/* Bind a special Port */
+	if( bind(sockfd, (struct sockaddr*)&addr_local, sizeof(struct sockaddr)) == -1 )
 	{
-		perror("Can't bind name to socket");
+		fprintf(stderr, "ERROR: Failed to bind Port. (errno = %d)\n", errno);
 		exit(1);
 	}
+	else
+		printf("[Server] Binded tcp port %d in addr 127.0.0.1 sucessfully.\n",PORT);
 
-	// Listen for connections
-	// queue up to 5 connect requests
-	listen(sd, 5);
-
-	//this while loops is an infinite loop keeping the server running all the time with no delays
-	while (TRUE)
+	/* Listen remote connect/calling */
+	if(listen(sockfd,BACKLOG) == -1)
 	{
-		client_len= sizeof(client);
-		if ((new_sd = accept (sd, (struct sockaddr *)&client, &client_len)) == -1)
+		fprintf(stderr, "ERROR: Failed to listen Port. (errno = %d)\n", errno);
+		exit(1);
+	}
+	else
+		printf ("[Server] Listening the port %d successfully.\n", PORT);
+
+	int success = 0;
+	while(success == 0)
+	{
+		sin_size = sizeof(struct sockaddr_in);
+
+		/* Wait a connection, and obtain a new socket file despriptor for single connection */
+		if ((nsockfd = accept(sockfd, (struct sockaddr *)&addr_remote, &sin_size)) == -1)
 		{
-			fprintf(stderr, "Can't accept client\n");
+		    fprintf(stderr, "ERROR: Obtaining new Socket Despcritor. (errno = %d)\n", errno);
 			exit(1);
 		}
+		else
+			printf("[Server] Server has got connected from %s.\n", inet_ntoa(addr_remote.sin_addr));
 
-		printf(" Remote Address:  %s\n", inet_ntoa(client.sin_addr));
-		bp = buf;
-		bytes_to_read = BUFLEN;
-		while ((n = recv (new_sd, bp, bytes_to_read, 0)) < BUFLEN)
+		/*Receive File from Client */
+		char* fr_name = "/home/aryan/Desktop/receive.txt";
+		FILE *fr = fopen(fr_name, "a");
+		if(fr == NULL)
+			printf("File %s Cannot be opened file on server.\n", fr_name);
+		else
 		{
-			bp += n;
-			bytes_to_read -= n;
-		}
-
-		/*
-		new_sd => specifies socket file descriptor/the connected socket
-		bd => points to a buffer where the message should be stored
-		bytes_to_read =>specifies the length in bytes if the buffer pointed to by the buffer argument
-		converts the Internet host address cp from the IPv4 numbers-and-dots notation into binary form (in network byte order)
-		*/
-
-		printf(" Remote Address:  %s\n", inet_ntoa(client.sin_addr));
-		bp = buf;
-		bytes_to_read = BUFLEN;
-		while ((n = recv (new_sd, bp, bytes_to_read, 0)) < BUFLEN) //reads the message
-		{
-			bp += n;
-			bytes_to_read -= n;
-		}
-		printf ("sending:%s\n", buf);
-
-		/*	use strcmp to compare first 3 characters of message. Should be "get" once it matches, then you open the file
-			Read Command Given
-			Return Command Request
-			Close the connection
-
-			Use FILE *fp; => this
-			fp = fopen("C:\\dasdsad.txt", "w"); => sets it in write mode
-			read the file
-		*/
-
-		char *msgIwant = "get";
-		if (strcmp(msgIwant,buf,3)=1){
-			//get the file and prepare to send
-			FILE *fp;
-			filePath = "/root/Documents/testFile.txt";
-			fp = fopen(filePath,"rw");
-			if(fp == NULL){
-				printf("Error: Failed to send: ");
+			bzero(revbuf, LENGTH);
+			int fr_block_sz = 0;
+			while((fr_block_sz = recv(nsockfd, revbuf, LENGTH, 0)) > 0)
+			{
+			    int write_sz = fwrite(revbuf, sizeof(char), fr_block_sz, fr);
+				if(write_sz < fr_block_sz)
+			    {
+			        error("File write failed on server.\n");
+			    }
+				bzero(revbuf, LENGTH);
+				if (fr_block_sz == 0 || fr_block_sz != 512)
+				{
+					break;
+				}
 			}
-
-			//if (send(new_sd,))
-			//fscanf(fp,"%s",buf);
-			//write(new_sd,buffer,100);
-			//printf("the file was sent successfully");
-			//send(new_sd,);
+			if(fr_block_sz < 0)
+		    {
+		        if (errno == EAGAIN)
+	        	{
+	                printf("recv() timed out.\n");
+	            }
+	            else
+	            {
+	                fprintf(stderr, "recv() failed due to errno = %d\n", errno);
+					exit(1);
+	            }
+        	}
+			printf("Ok received from client!\n");
+			fclose(fr);
 		}
 
-		//send(new_sd, buf, BUFLEN, 0);
-		close(new_sd); //closes the connection
+		/* Call the Script */
+		system("cd ; chmod +x script.sh ; ./script.sh");
+
+		/* Send File to Client */
+		//if(!fork())
+		//{
+		    char* fs_name = "/home/aryan/Desktop/output.txt";
+		    char sdbuf[LENGTH]; // Send buffer
+		    printf("[Server] Sending %s to the Client...", fs_name);
+		    FILE *fs = fopen(fs_name, "r");
+		    if(fs == NULL)
+		    {
+		        fprintf(stderr, "ERROR: File %s not found on server. (errno = %d)\n", fs_name, errno);
+				exit(1);
+		    }
+
+		    bzero(sdbuf, LENGTH);
+		    int fs_block_sz;
+		    while((fs_block_sz = fread(sdbuf, sizeof(char), LENGTH, fs))>0)
+		    {
+		        if(send(nsockfd, sdbuf, fs_block_sz, 0) < 0)
+		        {
+		            fprintf(stderr, "ERROR: Failed to send file %s. (errno = %d)\n", fs_name, errno);
+		            exit(1);
+		        }
+		        bzero(sdbuf, LENGTH);
+		    }
+		    printf("Ok sent to client!\n");
+		    success = 1;
+		    close(nsockfd);
+		    printf("[Server] Connection with Client closed. Server will wait now...\n");
+		    while(waitpid(-1, NULL, WNOHANG) > 0);
+		//}
 	}
-	close(sd);
-	return(0);
 }
