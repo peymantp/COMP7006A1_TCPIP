@@ -24,6 +24,7 @@ def Main():
     mySocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) 
     port = 7005
 
+    print str(socket.gethostname())
     mySocket.bind((socket.gethostname(),port))
     mySocket.listen(5)
 

@@ -11,18 +11,18 @@ def Main():
     if filename != 'q':
         clientSocket.send(filename)
         data = clientSocket.recv(1024)
-        if date[:6] == 'Geting':
+        if data[:6] == 'Geting':
             filesize = long(data[6:])
             message = raw_input("File Exists, " + str(filesize) +\
             "Bytes, download? (Y/N)?")
             if message == 'Y':
-                s.send('OK')
+                clientSocket.send('OK')
                 f = open('new_'+filename,'wb')
                 data.recv(1024)
                 totalRecv = len(data)
                 f.write(data)
                 while totalRecv < filesize:
-                    data = s.recv(1024)
+                    data = clientSocket.recv(1024)
                     totalRecv += len(data)
                     f.write(data)
                     print "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
@@ -30,7 +30,7 @@ def Main():
                 print "Download Complete!"
         else:
             print "File 404"
-    s.close()
+    clientSocket.close()
 
 if __name__ == '__main__':
     Main()
