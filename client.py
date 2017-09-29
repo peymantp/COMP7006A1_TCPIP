@@ -5,13 +5,14 @@ def Main():
     port = 7005
 
     clientSocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) 
-    clientSocket.connect((socket.gethostname(),port))
+    clientSocket.connect(('',port))
 
     filename = raw_input("Filename ->")
     if filename != 'q':
         clientSocket.send(filename)
         data = clientSocket.recv(1024)
         if data[:6] == 'Geting':
+            print data[6:]
             filesize = long(data[6:])
             message = raw_input("File Exists, " + str(filesize) +\
             "Bytes, download? (Y/N)?")

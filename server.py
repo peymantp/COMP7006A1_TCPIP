@@ -6,7 +6,7 @@ import threading
 def Get(name,sock):
     filename = sock.recv(1024)
     if os.path.isfile(filename):
-        sock.send("Geting: " + str(os.path.getsize(filename)))
+        sock.send("Geting " + str(os.path.getsize(filename)))
         userResponse = sock.recv(1024)
         if userResponse[:2] == 'OK':
             with open(filename,'rb') as f:
@@ -23,9 +23,11 @@ def Get(name,sock):
 def Main():
     mySocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) 
     port = 7005
-
-    print str(socket.gethostname())
-    mySocket.bind((socket.gethostname(),port))
+    try:
+        mySocket.bind(('',port))
+    except socket.error as e:
+        print(str(e))
+        
     mySocket.listen(5)
 
     print "Server Started"
