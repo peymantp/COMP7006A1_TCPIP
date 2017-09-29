@@ -24,17 +24,17 @@ def Main():
     mySocket = socket.socket(socket.AF_INET,socket.SOCK_STREAM) 
     port = 7005
 
-    mySocket.bind(socket.gethostname(),port)
+    mySocket.bind((socket.gethostname(),port))
     mySocket.listen(5)
 
     print "Server Started"
-    While True:
-        connection, addr = s.accept()
+    while True:
+        connection, addr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"
-        readThread = threading.Tread(target=Get, args=("retrThread"),connection)
-        t.start()
+        readThread = threading.Thread(target=Get, args=("retrThread",connection))
+        readThread.start()
 
-    s.close()
+    mySocket.close()
 
 if __name__ == '__main__':
     Main()
