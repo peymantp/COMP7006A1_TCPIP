@@ -49,7 +49,7 @@ def Main():
 
     mySocket.listen(5)
 
-    print "Server Started"
+    print socket.gethostbyaddr() +  "Server Started"
     while True:
         connection, addr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"
