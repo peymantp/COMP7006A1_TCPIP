@@ -41,15 +41,16 @@ def clientGET(name, sock):
 
 def Main():
     mySocket = socket.socket() 
+    address = socket.gethostbyname(socket.gethostname())
     port = 7005
     try:
-        mySocket.bind(('',port))
+        mySocket.bind((address,port))
     except socket.error as e:
         print(str(e))
 
     mySocket.listen(5)
 
-    print socket.gethostbyaddr() +  "Server Started"
+    print socket.gethostbyname(socket.gethostname()) + " Server Started"
     while True:
         connection, addr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"

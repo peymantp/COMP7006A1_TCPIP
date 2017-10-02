@@ -4,9 +4,8 @@ from os import path
 
 def Main():
     port = 7005
-    address = raw_input("enter IPv4 of server")
     clientSocket = socket.socket()
-    clientSocket.connect((address,port))
+    clientSocket.connect(('',port))
 
     while True:
         command = raw_input("(GET/SEND)?")
