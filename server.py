@@ -24,33 +24,34 @@ def clientGET(name, sock):
         else:
             sock.send("No such file found")
     elif command[:4] == "SEND":
-        filename = "server_"+command[4:]
-        f = open(filename,'w')
+        filename = "s_"+command[4:]
 
         sock.send("READY")
         filesize = sock.recv(1024)
         totalRecv = 0
-        while totalRecv < filesize:
-            data = sock.recv(1024)
-            totalRecv += len(data)
-            f.write(data)
-            print "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
-
-        sock.send("Upload complete!")
-        f.close()
-
+        with open(filename, "wb") as f:
+            while totalRecv < filesize:
+                data = sock.recv(1024)
+                totalRecv += len(data)
+                print str(totalRecv) + "<" + str(filesize) + " " + str(len(data)) + " " + str(totalRecv) 
+                f.write(data)
+                status = "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
+                print status
+                if status == "100.00% DONE":
+                    print "File complete"
+                    break
 def Main():
     mySocket = socket.socket() 
     address = socket.gethostbyname(socket.gethostname())
     port = 7005
     try:
-        mySocket.bind((address,port))
+        mySocket.bind(('',port))
     except socket.error as e:
         print(str(e))
 
     mySocket.listen(5)
 
-    print socket.gethostbyname(socket.gethostname()) + " Server Started"
+    print " Server Started"
     while True:
         connection, addr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"

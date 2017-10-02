@@ -37,6 +37,7 @@ def Main():
 
                     print "Download Complete!"
                     f.close()
+                    break
             else:
                 print "File 404"
         elif command == "SEND":
@@ -55,8 +56,8 @@ def Main():
                         bytesToSend = f.read(1024)
                         clientSocket.send(bytesToSend)
                         if bytesToSend == "":
-                            clientSocket.send("OK")
                             break
+                print "Upload Complete"
             else:
                 print "No such file found"
         else:
