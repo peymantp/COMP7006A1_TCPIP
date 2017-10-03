@@ -3,11 +3,14 @@ import socket
 import threading
 from os import path
 
-address = socket.gethostbyname(socket.gethostname())
-
-def client(name, sock, dataConnection):
+def client(name, sock):
+    dataport = 7006
+    dataConnection = socket.socket()
     command = sock.recv(1024)
+    print "Server connecting to " + str(command)
+    dataConnection.connect((command,dataport))
 
+    command = sock.recv(1024)
     if command[:3] == "GET":
         files = filter(path.isfile, os.listdir("./"))
         sock.send(str(files))
@@ -35,14 +38,14 @@ def client(name, sock, dataConnection):
             while totalRecv < int(filesize):
                 data = dataConnection.recv(1024)
                 totalRecv += len(data)
-                print str(totalRecv) + "<" + str(filesize) + " " + str(len(data)) + " " + str(totalRecv) 
+                print str(totalRecv) + "<" + str(filesize) + " " + str(len(data))
                 f.write(data)
                 status = "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
                 print status
 def Main():
-    mySocket = socket.socket() 
     port = 7005
-
+    mySocket = socket.socket()
+    address = socket.gethostbyname(socket.getfqdn()) #selects first non localhost in etc/hosts
     print str(address)
 
     try:
@@ -55,10 +58,9 @@ def Main():
     print " Server Started"
     while True:
         connection, addr = mySocket.accept()
-        dataConnection, dataaddr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"
-
-        cThread = threading.Thread(target=client, args=("Thread",connection,dataConnection))
+        
+        cThread = threading.Thread(target=client, args=("Thread",connection))
         cThread.start()
 
     mySocket.close()
