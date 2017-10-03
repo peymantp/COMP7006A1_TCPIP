@@ -3,9 +3,11 @@ import socket
 import threading
 from os import path
 
+address = socket.gethostbyname(socket.gethostname())
 
-def clientGET(name, sock):
+def client(name, sock, dataConnection):
     command = sock.recv(1024)
+
     if command[:3] == "GET":
         files = filter(path.isfile, os.listdir("./"))
         sock.send(str(files))
@@ -18,7 +20,7 @@ def clientGET(name, sock):
                 with open(filename,'rb') as f:
                     while True:
                         bytesToSend = f.read(1024)
-                        sock.send(bytesToSend)
+                        dataConnection.send(bytesToSend)
                         if bytesToSend == "":
                             break
         else:
@@ -30,22 +32,21 @@ def clientGET(name, sock):
         filesize = sock.recv(1024)
         totalRecv = 0
         with open(filename, "wb") as f:
-            while totalRecv < filesize:
-                data = sock.recv(1024)
+            while totalRecv < int(filesize):
+                data = dataConnection.recv(1024)
                 totalRecv += len(data)
                 print str(totalRecv) + "<" + str(filesize) + " " + str(len(data)) + " " + str(totalRecv) 
                 f.write(data)
                 status = "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
                 print status
-                if status == "100.00% DONE":
-                    print "File complete"
-                    break
 def Main():
     mySocket = socket.socket() 
-    address = socket.gethostbyname(socket.gethostname())
     port = 7005
+
+    print str(address)
+
     try:
-        mySocket.bind(('',port))
+        mySocket.bind((address,port))
     except socket.error as e:
         print(str(e))
 
@@ -54,9 +55,10 @@ def Main():
     print " Server Started"
     while True:
         connection, addr = mySocket.accept()
+        dataConnection, dataaddr = mySocket.accept()
         print "client connected ip:<" + str(addr) + ">"
 
-        cThread = threading.Thread(target=clientGET, args=("Thread",connection))
+        cThread = threading.Thread(target=client, args=("Thread",connection,dataConnection))
         cThread.start()
 
     mySocket.close()
