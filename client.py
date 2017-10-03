@@ -3,14 +3,23 @@ import os
 from os import path
 
 def Main():
-    address = '127.0.1.1'
+    address = socket.gethostbyname(socket.getfqdn()) #selects first non localhost in etc/hosts
+    serverAddress = raw_input("Enter server IP>")
     msgPort = 7005
     msgSocket = socket.socket()
-    msgSocket.connect((address,msgPort))
+    msgSocket.connect((serverAddress,msgPort))
 
-    dataPort = 7005
+    dataPort = 7006
     dataSocket = socket.socket()
-    dataSocket.connect((address,dataPort))
+    #dataSocket.connect((address,dataPort))
+    try:
+        dataSocket.bind((address,dataPort))
+    except socket.error as e:
+        print(str(e))
+    dataSocket.listen(1)
+    msgSocket.send(address)
+    dataConnection, dataaddr = dataSocket.accept()
+    print "server connected ip:<" + str(dataaddr) + ">"
 
     while True:
         command = raw_input("(GET/SEND)?")
@@ -31,11 +40,11 @@ def Main():
                 if message == 'Y':
                     msgSocket.send('OK')
                     f = open('client_'+filename,'w')
-                    data = dataSocket.recv(1024)
+                    data = dataConnection.recv(1024)
                     totalRecv = len(data)
                     f.write(data)
                     while totalRecv < filesize:
-                        data = dataSocket.recv(1024)
+                        data = dataConnection.recv(1024)
                         totalRecv += len(data)
                         f.write(data)
                         print "{0:.2f}".format((totalRecv/float(filesize))*100) + "% DONE"
@@ -58,7 +67,7 @@ def Main():
                 with open(filename,'rb') as f:
                     while True:
                         bytesToSend = f.read(1024)
-                        dataSocket.send(bytesToSend)
+                        dataConnection.send(bytesToSend)
                         if bytesToSend == "":
                             break
                 print "Upload Complete"
